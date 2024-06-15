@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Webcam API Example</title>
+</head>
+<body>
+<h1>Webcam API Example</h1>    
+    <input type="text" id="promptText" value="caption en">
+    <div id="responseText"></div>
+<div>
+    
+
+  <video id="video" width="640" height="480" autoplay></video>
+  <button id="startButton">Start</button>
+  <button id="stopButton">Stop</button>
+    
+</div>
+    
+
+<div id="status"></div>
+
+<script>
+let capturing = false;
+let intervalId;
+
+// Function to capture image from webcam
+function capture() {
+  const video = document.getElementById('video');
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const context = canvas.getContext('2d');
+  context.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const imageData = canvas.toDataURL('image/jpeg');
+  const promptText = document.getElementById('promptText').value;
+  // Send captured image to API endpoint
+  fetch('predict', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ image: imageData , prompt: promptText }),
+  })
+  .then(response => response.json())
+  .then(data => {
+    // Display response text from API
+    document.getElementById('responseText').innerText = data.text;
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    document.getElementById('responseText').innerText = 'Error occurred while fetching data from API.';
+  });
+}
+
+// Event listener for start button
+document.getElementById('startButton').addEventListener('click', function() {
+  if (!capturing) {
+    capturing = true;
+    document.getElementById('status').innerText = 'Capturing...';
+    intervalId = setInterval(capture, 1000); // Capture every 1 second
+  }
+});
+
+// Event listener for stop button
+document.getElementById('stopButton').addEventListener('click', function() {
+  if (capturing) {
+    capturing = false;
+    document.getElementById('status').innerText = 'Stopped';
+    clearInterval(intervalId);
+  }
+});
+
+// Access webcam and display video feed
+navigator.mediaDevices.getUserMedia({ video: true })
+.then(stream => {
+  const video = document.getElementById('video');
+  video.srcObject = stream;
+})
+.catch(error => {
+  console.error('Error accessing webcam:', error);
+});
+
+</script>
+</body>
+</html>

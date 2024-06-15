@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Webcam API Example</title>
+</head>
+<body>
+<h1>Webcam API Example</h1>
+<div>
+  <video id="video" width="640" height="480" autoplay></video>
+  <button id="captureButton">Capture</button>
+</div>
+<div id="responseText"></div>
+
+<script>
+// Function to capture image from webcam
+function capture() {
+  const video = document.getElementById('video');
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const context = canvas.getContext('2d');
+  context.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const imageData = canvas.toDataURL('image/jpeg');
+  
+  // Send captured image to API endpoint
+  fetch('predict', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ image: imageData }),
+  })
+  .then(response => response.json())
+  .then(data => {
+    // Display response text from API
+    document.getElementById('responseText').innerText = data.text;
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    document.getElementById('responseText').innerText = 'Error occurred while fetching data from API.';
+  });
+}
+
+// Access webcam and display video feed
+navigator.mediaDevices.getUserMedia({ video: true })
+.then(stream => {
+  const video = document.getElementById('video');
+  video.srcObject = stream;
+})
+.catch(error => {
+  console.error('Error accessing webcam:', error);
+});
+
+// Event listener for capture button
+document.getElementById('captureButton').addEventListener('click', capture);
+</script>
+</body>
+</html>

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Webcam GenAI</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background-color: #f0f0f0;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    margin-bottom: 20px;
+  }
+  h1 {
+    margin: 0 20px 0 0;
+  }
+  #controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  #controls input, #controls select, #controls button {
+    margin: 10px;
+    padding: 10px;
+    font-size: 16px;
+  }
+  video {
+    max-width: 100%;
+    border: 2px solid #ccc;
+    border-radius: 8px;
+    margin-bottom: 20px;
+  }
+  #responseText {
+    font-size: 18px;
+    color: #333;
+    margin-top: 10px;
+    text-align: center;
+  }
+  #status {
+    font-size: 18px;
+    font-weight: bold;
+    margin-top: 10px;
+  }
+  @media (max-width: 768px) {
+    #controls {
+      flex-direction: column;
+    }
+    #controls input, #controls select, #controls button {
+      width: 100%;
+      margin: 5px 0;
+    }
+    header {
+      flex-direction: column;
+    }
+    h1, #buttonContainer {
+      margin: 10px 0;
+    }
+  }
+  #buttonContainer {
+    display: flex;
+  }
+  #buttonContainer button {
+    margin: 0 5px;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Webcam GenAI</h1>
+  <div id="status"></div>
+  <div id="buttonContainer">
+    <button id="startButton">Start</button>
+    <button id="stopButton">Stop</button>
+  </div>
+</header>
+<div id="controls">
+  <label for="promptText">Prompt:</label>
+  <input type="text" id="promptText" value="图片显示了什么?">
+  <select id="cameraSelect"></select>
+  <div id="responseText"></div>
+</div>
+<video id="video" width="640" height="480" autoplay></video>
+
+
+<script>
+let capturing = false;
+
+// Function to capture image from webcam
+async function capture() {
+  const video = document.getElementById('video');
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const context = canvas.getContext('2d');
+  context.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const imageData = canvas.toDataURL('image/jpeg');
+  const promptText = document.getElementById('promptText').value;
+  
+  try {
+    const response = await fetch('predict', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ image: imageData, prompt: promptText }),
+    });
+    const data = await response.json();
+    // Display response text from API
+    document.getElementById('responseText').innerText = data.text;
+    if (capturing) {
+      capture(); // Capture next image after receiving response
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    document.getElementById('responseText').innerText = 'Error occurred while fetching data from API.';
+    if (capturing) {
+      capture(); // Attempt to capture next image even if there was an error
+    }
+  }
+}
+
+// Access available video input devices
+navigator.mediaDevices.enumerateDevices()
+.then(devices => {
+  const videoSelect = document.getElementById('cameraSelect');
+  devices.forEach(device => {
+    if (device.kind === 'videoinput') {
+      const option = document.createElement('option');
+      option.value = device.deviceId;
+      option.text = device.label || `Camera ${videoSelect.length + 1}`;
+      videoSelect.appendChild(option);
+    }
+  });
+})
+.catch(error => {
+  console.error('Error enumerating devices:', error);
+});
+
+// Start video stream with selected camera
+function startVideo(deviceId) {
+  navigator.mediaDevices.getUserMedia({ video: { deviceId: deviceId ? { exact: deviceId } : undefined } })
+  .then(stream => {
+    const video = document.getElementById('video');
+    video.srcObject = stream;
+  })
+  .catch(error => {
+    console.error('Error accessing webcam:', error);
+  });
+}
+
+// Event listener for start button
+document.getElementById('startButton').addEventListener('click', function() {
+  if (!capturing) {
+    capturing = true;
+    document.getElementById('status').innerText = 'Capturing...';
+    capture(); // Start the capture process
+  }
+});
+
+// Event listener for stop button
+document.getElementById('stopButton').addEventListener('click', function() {
+  if (capturing) {
+    capturing = false;
+    document.getElementById('status').innerText = 'Stopped';
+  }
+});
+
+// Event listener for camera selection
+document.getElementById('cameraSelect').addEventListener('change', function() {
+  const deviceId = this.value;
+  startVideo(deviceId);
+});
+
+// Initialize video stream with default camera
+startVideo();
+
+</script>
+</body>
+</html>
