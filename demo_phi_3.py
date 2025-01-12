@@ -16,14 +16,29 @@ from transformers import AutoProcessor
 import base64
 import cv2
 import numpy as np
+import torch
+
+from transformers import BitsAndBytesConfig
+
+# Enable quantization
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit=True,  # Set to True for 4-bit, or use load_in_8bit=True for 8-bit
+    bnb_4bit_compute_dtype=torch.bfloat16,  # Match your GPU support
+    bnb_4bit_use_double_quant=True,  # Optional: improves performance
+    bnb_4bit_quant_type="nf4"  # Normal Float 4-bit quantization
+)
 
 app = FastAPI()
 
+# Set the custom cache directory
+cache_dir = ".cache/"
+
 model_id = "microsoft/Phi-3-vision-128k-instruct" 
 
-model = AutoModelForCausalLM.from_pretrained(model_id, device_map="cuda", trust_remote_code=True, torch_dtype="auto")
+model = AutoModelForCausalLM.from_pretrained(model_id, device_map="cuda:0", quantization_config=bnb_config, trust_remote_code=True, torch_dtype=torch.bfloat16,cache_dir=cache_dir)
 
-processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True) 
+processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True,cache_dir=cache_dir) 
+
 
 @app.post("/predict")
 async def predict_image(image_data: dict):
